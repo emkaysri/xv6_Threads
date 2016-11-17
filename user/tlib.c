@@ -1,3 +1,5 @@
+// TODO Add any include statements needed, add a header file for this so we can use the library in other files (might need to move parts of this to there), add stuff for this and its header to user makefile
+
 typedef struct__lock_t {
   intflag;
 }lock_t;
@@ -16,7 +18,8 @@ lock->flag = 0;
 
 int thread_create(void (*start_routine)(void*), void *arg){
   acquire(lock_t*lock); 
-  if(create(vars, vars, vars) == 0){
+  // TODO Malloc stack and pass in as third arg
+  if(clone(start_routine, arg, vars) == 0){
     release(lock_t*lock);
     return 0;
   } else  {

@@ -90,28 +90,40 @@ sys_uptime(void)
   return xticks;
 }
 
-  //Actual call is clone(void(*fcn)(void*), void *arg, void *stack) so those are args
-  // Basically copy from allocproc and fork but with adjustments so addr space/pgdir is copied from orig proc and stack is as per arg?
-  //fcn is first instr to exe, ret is pidof thread
+int
+sys_clone(void)
+{
+  char* fcn = NULL; //Don't know if making these char*s works but was looking at sys_read as reference
+  char* arg = NULL;
+  char* stack = NULL;
+  if(argptr(0, &fcn, sizeof(void*)) < 0  // TODO Size args might need adjustment
+  || argptr(1, &arg, sizeof(void*)) < 0
+  || argptr(2, &stack, PGSIZE) < 0)
+    return -1;
+  return procclone(fcn, arg, stack);
+  // Can't use allocproc inside this file so calling our fork clone inside proc.c instead
+}
+
+  //clone(void(*fcn)(void*), void *arg, void *stack)
+
+  //fcn is first instr to exe, return is pidof thread
+
+  //arg is arg to be passed to proc's stack
+
   //Adjust stuff about trap frame / registers
-  //Adjust wait to account for threads vs children (WAIT FREES AS OF CHILD SO MAKE SURE IT WON'T FREE THE SHARED AS OF THREADS) - probably just add a bool int to proc that's isthread or something and don't free if isthread
+
+  //Adjust wait to account for threads vs children (WAIT FREES AS OF CHILD SO MAKE SURE IT WON'T FREE THE SHARED AS OF THREADS) - I wrote something for this but am not 100% sure it works as desired in all places
+
   //Look at exec.c for stack allocation stuff (before clone is called, malloc a page to pass in as stack)
      //Regs to set up include eip, esp
-  //See 2nd video for additional info
-  return -1;
-}
+
 
 int
 sys_join(void)
 {
-  //Will presumably mostly copy from wait()?
+  //Will presumably mostly copy from wait()? Maybe we can even just call wait() on the thread with the change I made.
   return -1;
 }
 
 //TODO:
-  //Also adjust exit() minimally for these changes
-  //Create thread lib
-  //Add to lib: thread_create(void(*start_routine)(void*), void*arg) which will basically be a wrapper for clone which mallocs a stack, then passes it and the args into clone()
-  //Add to lib: thread_join(), which is of course a wrapper for join()
-  //Add to lib: Create TYPE lock_t, and routines lock_acquire and lock_release (use x86 atomic xchg to make it work) and lock_init
-
+  //Also adjust exit() minimally for these changes maybe
