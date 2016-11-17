@@ -45,6 +45,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->isthread = 0;
   release(&ptable.lock);
 
   // Allocate kernel stack if possible.
@@ -69,6 +70,40 @@ found:
   p->context->eip = (uint)forkret;
 
   return p;
+}
+
+int
+procclone(void* fcn, void* arg, void* stack)
+{
+  int i, pid;
+  struct proc *np;
+
+  // Allocate process.
+  if((np = allocproc()) == 0)
+    return -1;
+
+  // Copy process state and AS from p.
+  np->pgdir = proc->pgdir;
+  np->sz = proc->sz;
+  np->parent = proc;
+  np->isthread = 1;
+  *np->tf = *proc->tf;
+
+  // Clear %eax so that fork returns 0 in the child. TODO Replace with something else?
+  np->tf->eax = 0;
+
+  np->tf->eip = (uint)fcn;  // TODO Not sure if that's a valid way of casting?
+  // TODO Set up stack and esp(stack pointer), use exec.c as reference for how
+
+  for(i = 0; i < NOFILE; i++)
+    if(proc->ofile[i])
+      np->ofile[i] = filedup(proc->ofile[i]);
+  np->cwd = idup(proc->cwd);
+ 
+  pid = np->pid;
+  np->state = RUNNABLE;
+  safestrcpy(np->name, proc->name, sizeof(proc->name));
+  return pid;
 }
 
 // Set up first user process.
@@ -223,7 +258,8 @@ wait(void)
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        freevm(p->pgdir);
+        if (!p->isthread)freevm(p->pgdir);  // Do not free thread address space
+        // TODO Currently this would mean threads spawned off of the original won't have their AS freed but if the master thread waits/exits then the AS will still be lost. If that is a problem additional adjustment may be needed.
         p->state = UNUSED;
         p->pid = 0;
         p->parent = 0;
@@ -442,5 +478,4 @@ procdump(void)
     cprintf("\n");
   }
 }
-
 
