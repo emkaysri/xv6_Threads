@@ -89,11 +89,12 @@ procclone(void* fcn, void* arg, void* stack)
   np->isthread = 1;
   *np->tf = *proc->tf;
 
-  // Clear %eax so that fork returns 0 in the child. TODO Replace with something else?
+  // Clear %eax so that fork returns 0 in the child. TODO Replace with something else? Don't know if we need to.
   np->tf->eax = 0;
 
-  np->tf->eip = (uint)fcn;  // TODO Not sure if that's a valid way of casting?
+  np->tf->eip = (uint)fcn;
   // TODO Set up stack and esp(stack pointer), use exec.c as reference for how
+  // TODO How to pass in the arg? Probably one of the registers/the stack?
 
   for(i = 0; i < NOFILE; i++)
     if(proc->ofile[i])
@@ -281,6 +282,48 @@ wait(void)
   }
 }
 
+int
+thrjoin(void)
+{
+// TODO INCOMPLETE: not yet tested for functionality, may need significant adjustment
+// TODO needs to take join()'s arg (stack) and copy the child's stack onto the address pointed to by the arg so it can be viewed after return
+  struct proc *p;
+  int havekids, pid;
+
+  acquire(&ptable.lock);
+  for(;;){
+    // Scan through table looking for zombie children.
+    havekids = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->parent != proc || !p->isthread)
+        continue;
+      havekids = 1;
+      if(p->state == ZOMBIE){
+        // Found one.
+        pid = p->pid;
+        kfree(p->kstack);
+        p->kstack = 0;
+        p->state = UNUSED;
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        release(&ptable.lock);
+        return pid;
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || proc->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(proc, &ptable.lock);  //DOC: wait-sleep
+  }
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -320,6 +363,7 @@ scheduler(void)
 
   }
 }
+
 
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state.
