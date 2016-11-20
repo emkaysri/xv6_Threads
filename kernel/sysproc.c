@@ -108,7 +108,7 @@ sys_clone(void)
 
   //fcn is first instr to exe, return is pidof thread
 
-  //arg is arg to be passed to proc's stack
+  //arg is arg to be passed to the method at fcn
 
   //Adjust stuff about trap frame / registers
 
@@ -121,8 +121,7 @@ sys_clone(void)
 int
 sys_join(void)
 {
-  //Will presumably mostly copy from wait()? Maybe we can even just call wait() on the thread with the change I made.
-  return -1;
+  return thrjoin();  // TODO INCOMPLETE: needs to take its arg (stack) and copy the child's stack onto the address pointed to by the arg so it can be viewed after return
 }
 
 //TODO:
