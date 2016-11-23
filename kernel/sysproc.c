@@ -93,10 +93,10 @@ sys_uptime(void)
 int
 sys_clone(void)
 {
-  char* fcn = NULL; //Don't know if making these char*s works but was looking at sys_read as reference
+  char* fcn = NULL;
   char* arg = NULL;
   char* stack = NULL;
-  if(argptr(0, &fcn, sizeof(void*)) < 0  // TODO Size args might need adjustment
+  if(argptr(0, &fcn, sizeof(void*)) < 0
   || argptr(1, &arg, sizeof(void*)) < 0
   || argptr(2, &stack, PGSIZE) < 0)
     return -1;
@@ -104,25 +104,20 @@ sys_clone(void)
   // Can't use allocproc inside this file so calling our fork clone inside proc.c instead
 }
 
-  //clone(void(*fcn)(void*), void *arg, void *stack)
-
-  //fcn is first instr to exe, return is pidof thread
-
-  //arg is arg to be passed to the method at fcn
-
-  //Adjust stuff about trap frame / registers
-
-  //Adjust wait to account for threads vs children (WAIT FREES AS OF CHILD SO MAKE SURE IT WON'T FREE THE SHARED AS OF THREADS) - I wrote something for this but am not 100% sure it works as desired in all places
-
-  //Look at exec.c for stack allocation stuff (before clone is called, malloc a page to pass in as stack)
-     //Regs to set up include eip, esp
-
 
 int
 sys_join(void)
 {
-  return thrjoin();  // TODO INCOMPLETE: needs to take its arg (stack) and copy the child's stack onto the address pointed to by the arg so it can be viewed after return
+  char* stack = NULL;
+  if (argptr(0, &stack, PGSIZE) < 0) return -1;
+  return thrjoin((void**)stack);
 }
 
-//TODO:
-  //Also adjust exit() minimally for these changes maybe
+int
+sys_getlock(void)
+{
+  char* templock = NULL;
+  if (argptr(0, &templock, sizeof(struct lock_t*)) < 0) return -1;
+  templock = (char*)proc->lock;
+  return 0;
+}
