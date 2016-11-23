@@ -108,7 +108,7 @@ void            sched(void);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
 int             wait(void);
-int             thrjoin(void);
+int             thrjoin(void**);
 void            wakeup(void*);
 void            yield(void);
 
