@@ -75,6 +75,8 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   int isthread;                // Is this process a thread?
+  void *retstack;              // To make returning stack easier for join()
+  struct lock_t *lock;         // Lock for process and its threads
 };
 
 // Process memory is laid out contiguously, low addresses first:
