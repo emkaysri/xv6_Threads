@@ -34,6 +34,8 @@ allocproc(void)
 {
   struct proc *p;
   char *sp;
+  struct lock_t lock;
+  lock.flag = 0;
 
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
@@ -46,6 +48,7 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   p->isthread = 0;
+  p->lock = &lock;
   release(&ptable.lock);
 
   // Allocate kernel stack if possible.
@@ -88,14 +91,20 @@ procclone(void* fcn, void* arg, void* stack)
   np->parent = proc;
   np->isthread = 1;
   *np->tf = *proc->tf;
+  np->lock = proc->lock;
 
-  // Clear %eax so that fork returns 0 in the child. TODO Replace with something else? Don't know if we need to.
-  np->tf->eax = 0;
+  np->tf->eax = np->pid;
 
   np->tf->eip = (uint)fcn;
-  // TODO Set up stack and esp(stack pointer), use exec.c as reference for how
-  // TODO How to pass in the arg? Probably one of the registers/the stack?
 
+  uint* setup = stack + PGSIZE - 4;
+  *setup = (uint)arg;
+  setup--;
+  *setup = 0xffffffff;
+  np->tf->ebp = (uint)setup;
+  np->tf->esp = (uint)setup;
+  np->retstack = stack;
+  
   for(i = 0; i < NOFILE; i++)
     if(proc->ofile[i])
       np->ofile[i] = filedup(proc->ofile[i]);
@@ -165,6 +174,8 @@ fork(void)
 {
   int i, pid;
   struct proc *np;
+  struct lock_t newlock;
+  newlock.flag = 0;
 
   // Allocate process.
   if((np = allocproc()) == 0)
@@ -180,6 +191,7 @@ fork(void)
   np->sz = proc->sz;
   np->parent = proc;
   *np->tf = *proc->tf;
+  np->lock = &newlock;
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -260,7 +272,7 @@ wait(void)
         kfree(p->kstack);
         p->kstack = 0;
         if (!p->isthread)freevm(p->pgdir);  // Do not free thread address space
-        // TODO Currently this would mean threads spawned off of the original won't have their AS freed but if the master thread waits/exits then the AS will still be lost. If that is a problem additional adjustment may be needed.
+        // Currently this would mean threads spawned off of the original won't have their AS freed but if the master thread waits/exits then the AS will still be lost. If that is a problem additional adjustment may be needed.
         p->state = UNUSED;
         p->pid = 0;
         p->parent = 0;
@@ -283,10 +295,8 @@ wait(void)
 }
 
 int
-thrjoin(void)
+thrjoin(void** stack)
 {
-// TODO INCOMPLETE: not yet tested for functionality, may need significant adjustment
-// TODO needs to take join()'s arg (stack) and copy the child's stack onto the address pointed to by the arg so it can be viewed after return
   struct proc *p;
   int havekids, pid;
 
@@ -309,6 +319,7 @@ thrjoin(void)
         p->name[0] = 0;
         p->killed = 0;
         release(&ptable.lock);
+        *stack = p->retstack;
         return pid;
       }
     }
