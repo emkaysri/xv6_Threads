@@ -27,6 +27,7 @@ int sleep(int);
 int uptime(void);
 int join(void**);
 int clone(void*, void*, void*);
+int getlock(struct lock_t*);
 
 // user library functions (ulib.c)
 int stat(char*, struct stat*);
@@ -43,6 +44,9 @@ void free(void*);
 int atoi(const char*);
 
 // thread library functions (tlib.c)
+void init(struct lock_t *);
+void acquire(struct lock_t *);
+void release(struct lock_t*lock);
 int thread_create(void *, void *);
 int thread_join(void);
 
